@@ -16,11 +16,10 @@ import time
 SYNAPTIC_PINFILE = "/var/lib/synaptic/preferences"
 DISTRO = subprocess.check_output(["lsb_release", "-c", "-s"],
 									universal_newlines=True).strip()
-sender_email = "EMAIL ADDRESS HERE"
-receiver_email = "EMAIL ADDRESS HERE"
+sender_email = "EMAIL HERE"
+receiver_email = "EMAIL HERE"
 log = 'updates.txt'
 
-#####Setting up email function using gmail#####
 def email():
     message = MIMEMultipart()
     message["From"] = sender_email
@@ -35,24 +34,21 @@ def email():
     my_message = message.as_string()
     email_session = smtplib.SMTP('smtp.gmail.com',587)
     email_session.starttls()
-    email_session.login(sender_email,'EMAIL LOG IN TOKEN')
+    email_session.login(sender_email,'GMAIL LOG IN TOKEN')
     email_session.sendmail(sender_email,receiver_email,my_message)
     email_session.quit()
 
-#####Checking for dependency updates######
 def clean(cache, depcache):
 	for pkg in cache.Packages:
 		depcache.MarkKeep(pkg)
 	depcache.init()
 
-#####checking for Distr updates#####
 def saveDistUpgrade(cache,depcache):
 	depcache.upgrade(True)
 	if depcache.del_count > 0:
 		clean(cache,depcache)
 	depcache.upgrade()
 
-#####checking for package updates#####
 def get_update_packages():
 	pkgs = []
 	apt_pkg.init()
@@ -87,7 +83,6 @@ def get_update_packages():
 		pkgs.append(record)
 	return pkgs
 
-#####checking for security updates#####
 def isSecurityUpgrade(pkg, depcache):
     def isSecurityUpgrade_helper(ver):
         security_pockets = [("Ubuntu", "%s-security" % DISTRO),
@@ -100,6 +95,7 @@ def isSecurityUpgrade(pkg, depcache):
         return False
     inst_ver = pkg.current_ver
     cand_ver = depcache.get_candidate_ver(pkg)
+
     if isSecurityUpgrade_helper(cand_ver):
         return True
     for ver in pkg.version_list:
@@ -109,7 +105,10 @@ def isSecurityUpgrade(pkg, depcache):
            return True
         return False
 
-#####Printing the results, logging them into file and sending it#####
+def logging():
+    with open(log, 'w') as f:
+            f.write(print_result(pkgs))
+
 def print_result(pkgs):
     security_updates = filter(lambda x: x.get('security'), pkgs)
     text = list()
@@ -130,12 +129,12 @@ def print_result(pkgs):
                 '*' if pkg.get('security') else ''))
         text.append('=' * 65)
         return '\n'.join(text)
-        with open(log, 'w') as f:
-            f.write(print_result(pkgs))
+        logging()
         email()
     else:
+        text.append('No available updates on this machine.')
         return
 
 if __name__ == '__main__':
     pkgs = get_update_packages()
-    print(print_result(pkgs))
+    print_result(pkgs)
